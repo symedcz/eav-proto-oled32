@@ -164,9 +164,9 @@ void setup() {
   WiFi.begin("THiNX-IoT+", "<enter-your-ssid-password>");
   delay(2000); // wait for DHCP
 
-  // EAV-OLED32: f609c9bfcd55b479f1592ef4e6628de0ce785a5a9b0b740ec0189d4c18de18da
+  // EAV-OLED32: 60f1bbebe075c5e565dfa087e57e545593a647735fcff75a8565d773b5fa0cdd
 
-  thx = THiNX("f609c9bfcd55b479f1592ef4e6628de0ce785a5a9b0b740ec0189d4c18de18da", "cedc16bb6bb06daaa3ff6d30666d91aacd6e3efbf9abbc151b4dcade59af7c12");
+  thx = THiNX("60f1bbebe075c5e565dfa087e57e545593a647735fcff75a8565d773b5fa0cdd", "e655a920ed7e9656d675aa29dc1c4c5cde054f25e594a61a369988b864436421");
 
   pinMode(A0, INPUT);
   pinMode(BUTTON_PIN, INPUT);
