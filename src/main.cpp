@@ -3,6 +3,8 @@
 #include <THiNXLib.h>
 THiNX thx;
 
+#define TESTING
+
 //
 
 // SSD1306
@@ -152,23 +154,25 @@ int overlaysCount = 2;
 
 void setup() {
 
+#ifdef TESTING
   Serial.begin(230400);
-
   Serial.setTimeout(2000);
-
   Serial.flush();
 
   // Wait for serial to initialize.
-
   Serial.println("\nI'm awake.");
+  THiNX::logging = true;
+#endif
 
   // Works, but should use WiFiManager
   WiFi.mode(WIFI_STA);
   WiFi.begin("THiNX-IoT", "<enter-your-ssid-password>");
   delay(2000); // wait for DHCP
 
+  // TODO: Encrypt those values using DevSec
   const char *api_key = "dc534a02cc9b7677282f9cc2d2d514677c703eca0fef258c93f56ce0f08a23c2";
   const char *owner_id = "886d515f173e4698f15140366113b7c98c678401b815a592d88c866d13bf5445";
+
   thx = THiNX(api_key, owner_id);
 
   Serial.println("Configuring hardware...");
@@ -177,9 +181,11 @@ void setup() {
   pinMode(BUTTON_PIN, INPUT);
 
   /*
+#ifdef TESTING
   Serial.println("Going into deep sleep for 5 seconds");
   Serial.println(millis());
   ESP.deepSleep(5e6); // 5e6 is 5000000 microseconds
+#endif
   */
 
   // The ESP is capable of rendering 60fps in 80Mhz mode
@@ -201,7 +207,9 @@ void setup() {
   ui.init();
   display.flipScreenVertically();
 
+#ifdef TESTING
   Serial.println("Main loop started...");
+#endif
 }
 
 /*

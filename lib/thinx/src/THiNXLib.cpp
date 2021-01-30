@@ -722,7 +722,7 @@ void THiNX::fetch_data(WiFiClient *client)
 
 void THiNX::fetch_data_secure(BearSSL::WiFiClientSecure *client)
 {
-  //if (logging) Serial.println(F("*TH: Waiting for API response..."));
+  if (logging) Serial.println(F("*TH: Waiting for API response..."));
 
   char buf[768];
   int pos = 0;
@@ -732,7 +732,7 @@ void THiNX::fetch_data_secure(BearSSL::WiFiClientSecure *client)
 
   // Wait until client available or timeout...
   unsigned long time_out = millis() + 30000;
-  //if (logging) Serial.println(F("*TH: Waiting for client..."));
+  if (logging) Serial.println(F("*TH: Waiting for client..."));
 
   while (!client->available())
   {
@@ -753,6 +753,7 @@ void THiNX::fetch_data_secure(BearSSL::WiFiClientSecure *client)
     if (!headers_passed)
     {
       line = client->readStringUntil('\n');
+      //Serial.println(line);
       yield();
       if (line.length() < 3)
       {
@@ -773,12 +774,13 @@ void THiNX::fetch_data_secure(BearSSL::WiFiClientSecure *client)
   buf[pos] = '\0'; // add null termination for any case...
   client->stop();  // ??
 #ifdef DEBUG
-  //if (logging) Serial.println();
+  if (logging) Serial.println();
   if (pos == 0)
   {
     if (logging)
       Serial.printf("*TH: API Communication error, fix me now!\n");
   }
+  //Serial.println(buf);
 #endif
   parse(buf);
 }
@@ -797,19 +799,20 @@ void THiNX::send_data_secure(const String &body)
 
   https_client.setInsecure(); // does not validate anything, very dangerous!
 
-  bool mfln = https_client.probeMaxFragmentLength("tls.mbed.org", 443, 512);
-  //bool mfln = https_client.probeMaxFragmentLength(thinx_cloud_url, thinx_api_port, 512);
+  bool mfln = https_client.probeMaxFragmentLength(thinx_cloud_url, 443, 512);
 #ifdef DEBUG
   if (logging)
-    Serial.printf("*TH: [MFLN] against tls.mbed.org supported: %s\n", mfln ? "yes" : "no");
+    Serial.printf("*TH: [MFLN] supported: %s\n", mfln ? "yes" : "no");
 #endif
   if (mfln)
   {
     https_client.setBufferSizes(512, 512);
   }
 
+#ifdef DEBUG
   Serial.print("[HTTPS]");
   Serial.print(thinx_cloud_url); Serial.print(":"); Serial.println(thinx_api_port);
+#endif
 
   if (!https_client.connect(thinx_cloud_url, thinx_api_port))
   {
