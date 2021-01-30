@@ -143,21 +143,11 @@ THiNX::THiNX(const char *__apikey, const char *__owner_id)
   owner_param = new WiFiManagerParameter("owner", "Owner ID", thinx_owner_key, 64);
   wifiManager.addParameter(owner_param);
   wifiManager.setTimeout(5000);
-  wifiManager.setDebugOutput(true); // does some logging on mode set
+  wifiManager.setDebugOutput(logging); // does some logging on mode set
   wifiManager.setSaveConfigCallback(saveConfigCallback);
   wifiManager.autoConnect(accessPointName.c_str());
+  wifiManager.setHostname("eav");
 #endif
-
-  /* essentially useless....
-#ifdef DEBUG
-  if (logging) {
-    Serial.print(F("\n*TH: THiNXLib rev. "));
-    Serial.print(THX_REVISION);
-    Serial.print(F(" version: "));
-    Serial.println(VERSION);
-  }
-#endif
-*/
 
   json_buffer[0] = 0;
 
@@ -810,8 +800,10 @@ void THiNX::send_data_secure(const String &body)
   }
 
 #ifdef DEBUG
-  Serial.print("[HTTPS]");
-  Serial.print(thinx_cloud_url); Serial.print(":"); Serial.println(thinx_api_port);
+  if (logging) {
+    Serial.print(F("[HTTPS]"));
+    Serial.print(thinx_cloud_url); Serial.print(":"); Serial.println(thinx_api_port);
+  }
 #endif
 
   if (!https_client.connect(thinx_cloud_url, thinx_api_port))
@@ -1207,7 +1199,9 @@ void THiNX::parse(const char *pload)
       {
         String meshString = registration[F("mesh_ids")];
         thinx_meshes = strdup(meshString.c_str());
-        Serial.print("[MESH DEBUG] Imported meshes: "); Serial.println(thinx_meshes);
+        if (logging) {
+          Serial.print(F("*TH: Imported meshes: ")); Serial.println(thinx_meshes);
+        }
       }
 
       if (registration.containsKey(F("auto_update")))
@@ -1714,16 +1708,11 @@ bool THiNX::start_mqtt()
   generate_mqtt_status_channel();
 
 #ifdef DEBUG
-  if (logging)
-    Serial.print(F("*TH: UDID: "));
-  if (logging)
-    Serial.println(thinx_udid);
-  if (logging)
-    Serial.print(F("*TH: AK: "));
-  if (logging)
-    Serial.println(thinx_api_key);
-  Serial.print("*TH: MEM: ");
-  Serial.println(ESP.getFreeHeap());
+  if (logging) {
+    Serial.print(F("*TH: UDID: ")); Serial.println(thinx_udid);
+    Serial.print(F("*TH: AK: ")); Serial.println(thinx_api_key);
+    Serial.print("*TH: MEM: "); Serial.println(ESP.getFreeHeap());
+  }
 #endif
 
 
@@ -2110,7 +2099,9 @@ void THiNX::update_and_reboot(String url)
 
   if (logging)
     Serial.println(F("*TH: Starting ESP8266 HTTP Update & reboot..."));
-    t_httpUpdate_return ret;
+  
+  t_httpUpdate_return ret = HTTP_UPDATE_FAILED;
+
   if (forceHTTP)
   {
     if (logging) Serial.println(F("*TH: forceHTTP"));
@@ -2133,7 +2124,7 @@ void THiNX::update_and_reboot(String url)
 #ifdef ENABLE_HTTPS
     // update(host, port, uri, currentversion) - starts own HTTP client in HTPS mode
 #warning OTA Updates have HTTP override! No HTTPS fingerprinting available without OTT provision.
-    thinx_api_port = 7442;
+    thinx_api_port = 7442; // will deprecate in favour of 80, API shall have different CNAME to WEB
     ret = ESPhttpUpdate.update(thinx_cloud_url, thinx_api_port, url.c_str(), "");
 #else
     Serial.println(F("ERROR: In HTTPS mode, but ENABLE_HTTPS is not active. No SSL client available!!!"));
@@ -2580,7 +2571,8 @@ void THiNX::loop()
       if (mqtt_client->subscribe("/#"))
       {
 #ifdef DEBUG
-        Serial.println(F("*TH: MQTT subscribed to device channel."));
+        if (logging)
+          Serial.println(F("*TH: MQTT subscribed to device channel."));
 #endif
         mqtt_client->loop();
         delay(10);
@@ -2598,7 +2590,8 @@ void THiNX::loop()
       if (mqtt_connected == false)
       {
 #ifdef DEBUG
-        Serial.println(F("*TH: CONNECT_MQTT phase."));
+        if (logging)
+          Serial.println(F("*TH: CONNECT_MQTT phase."));
 #endif
         mqtt_connected = start_mqtt();
         mqtt_client->loop();

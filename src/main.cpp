@@ -1,33 +1,47 @@
 #include <Arduino.h>
-
 #include <THiNXLib.h>
+//#include <Wire.h>  // Only needed for Arduino 1.6.5 and earlier?
+#include "SSD1306.h" // alias for `#include "SSD1306Wire.h"`
+#include "OLEDDisplayUi.h"
+#include "images.h"
+
 THiNX thx;
 
 #define TESTING
 
 //
+// Hardware and Mesurement
+//
 
-// SSD1306
-
-#include <Wire.h>  // Only needed for Arduino 1.6.5 and earlier
-#include "SSD1306.h" // alias for `#include "SSD1306Wire.h"`
-#include "OLEDDisplayUi.h"
-#include "images.h"
-
-SSD1306  display(0x3c, D5, D6);
-OLEDDisplayUi ui     ( &display );
-
-int LAST_EAV = 0; // latest measured value
-int graph[128] = {0};
-
-#define MODE_MEASURE 0
-#define MODE_STIMULATE 1
-
+// Pinout
 #define BUTTON_PIN D4
 #define SIGOUT_PIN D2
+#define SDA_PIN D5
+#define SCL_PIN D6
+#define MEASUREMENT_PIN A0
 
-int mode = MODE_MEASURE;
+// Display
+SSD1306 display(0x3c, SDA_PIN, SCL_PIN);
+OLEDDisplayUi ui( &display );
+
+int last_measurement = 0; // latest measured value
+int graph[128] = {0};
+
+enum EAV_MODE {
+  MODE_MEASURE = 0,
+  MODE_STIMULATE = 1,
+  MODE_SLEEP = 2,
+  MODE_RESTART = 3
+};
+
+EAV_MODE mode = MODE_MEASURE;
+
 long debounce = 0; // millis until button will be debounced
+
+//
+// UI
+//
+
 bool perform_graph_reset = false; // trigger for graph reset
 long max_result = 0; // measured maximum
 long max_result_time = 0; // time from measured maximum
@@ -37,7 +51,7 @@ int graph_loop_counter = 0;
 void measurementOverlay(OLEDDisplay *display, OLEDDisplayUiState* state) {
   display->setTextAlignment(TEXT_ALIGN_RIGHT);
   display->setFont(ArialMT_Plain_16);
-  display->drawString(128, 0, String(LAST_EAV));
+  display->drawString(128, 0, String(last_measurement));
 }
 
 void stateOverlay(OLEDDisplay *display, OLEDDisplayUiState* state) {
@@ -47,7 +61,7 @@ void stateOverlay(OLEDDisplay *display, OLEDDisplayUiState* state) {
   if (mode == MODE_MEASURE) {
     if (max_result_interval) {
       // show max_result when interval falls...? over-enginnered prototype
-      display->drawString(0, 0, String(max_result_interval/1000) + String("s -") + String(max_result-LAST_EAV) + String("%"));
+      display->drawString(0, 0, String(max_result_interval/1000) + String("s -") + String(max_result-last_measurement) + String("%"));
     } else {
       display->drawString(0, 0, F("MEASURE"));
     }
@@ -56,7 +70,7 @@ void stateOverlay(OLEDDisplay *display, OLEDDisplayUiState* state) {
   }
 }
 
-void drawFrame1(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
+void uiDrawGraph(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
 
   // Draw line [graph]
   for (int gx = 0; gx < 128; gx++) {
@@ -78,7 +92,7 @@ void drawFrame1(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int1
   }
 }
 
-void drawFrame2(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
+void uiDrawImage(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
 
   return;
 
@@ -105,46 +119,9 @@ void drawFrame2(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int1
   */
 }
 
-void drawFrame3(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
-  // Text alignment demo
-  display->setFont(ArialMT_Plain_10);
+FrameCallback frames[] = { uiDrawGraph, uiDrawImage };
+int frameCount = 2;
 
-  // The coordinates define the left starting point of the text
-  display->setTextAlignment(TEXT_ALIGN_LEFT);
-  display->drawString(0 + x, 11 + y, "Left aligned (0,10)");
-
-  // The coordinates define the center of the text
-  display->setTextAlignment(TEXT_ALIGN_CENTER);
-  display->drawString(64 + x, 22 + y, "Center aligned (64,22)");
-
-  // The coordinates define the right end of the text
-  display->setTextAlignment(TEXT_ALIGN_RIGHT);
-  display->drawString(128 + x, 33 + y, "Right aligned (128,33)");
-}
-
-void drawFrame4(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
-  // Demo for drawStringMaxWidth:
-  // with the third parameter you can define the width after which words will be wrapped.
-  // Currently only spaces and "-" are allowed for wrapping
-  display->setTextAlignment(TEXT_ALIGN_LEFT);
-  display->setFont(ArialMT_Plain_10);
-  display->drawStringMaxWidth(0 + x, 10 + y, 128, "Lorem ipsum\n dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore.");
-}
-
-void drawFrame5(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
-
-}
-
-// SSD1306
-
-// This array keeps function pointers to all frames
-// frames are the single views that slide in
-FrameCallback frames[] = { drawFrame1, drawFrame2, drawFrame3, drawFrame4, drawFrame5 };
-
-// how many frames are there?
-int frameCount = 1;
-
-// Overlays are statically drawn on top of a frame eg. a clock
 OverlayCallback overlays[] = { stateOverlay, measurementOverlay };
 int overlaysCount = 2;
 
@@ -161,23 +138,20 @@ void setup() {
 
   // Wait for serial to initialize.
   Serial.println("\nI'm awake.");
-  THiNX::logging = true;
+  THiNX::logging = false;
 #endif
 
   // Works, but should use WiFiManager
-  WiFi.mode(WIFI_STA);
-  WiFi.begin("THiNX-IoT", "<enter-your-ssid-password>");
-  delay(2000); // wait for DHCP
+  // WiFi.mode(WIFI_STA);
+  // WiFi.begin("THiNX-IoT", "<enter-your-ssid-password>");
+  // delay(2000); // wait for DHCP
 
-  // TODO: Encrypt those values using DevSec
-  const char *api_key = "dc534a02cc9b7677282f9cc2d2d514677c703eca0fef258c93f56ce0f08a23c2";
-  const char *owner_id = "886d515f173e4698f15140366113b7c98c678401b815a592d88c866d13bf5445";
-
+  
   thx = THiNX(api_key, owner_id);
 
-  Serial.println("Configuring hardware...");
+  Serial.println("Booting...");
 
-  pinMode(A0, INPUT);
+  pinMode(MEASUREMENT_PIN, INPUT);
   pinMode(BUTTON_PIN, INPUT);
 
   /*
@@ -208,7 +182,7 @@ void setup() {
   display.flipScreenVertically();
 
 #ifdef TESTING
-  Serial.println("Main loop started...");
+  Serial.println("Ready.");
 #endif
 }
 
@@ -216,7 +190,7 @@ void setup() {
  * ESP8266 technical notes
 
 - wakes up when RST goes to GND and HIGH (rising side); therefore button cannot be evaluated after reset
-- timer resets as well
+- timer resets as well; EEPROM could be used to store latest state...
 
 */
 
@@ -299,10 +273,10 @@ void reset_graph() {
 
 void loop() {
 
-  measure = analogRead(A0);
+  measure = analogRead(MEASUREMENT_PIN);
 
   // Enable reset when signal falls to zero
-  if (measure < LAST_EAV) {
+  if (measure < last_measurement) {
     if (measure < MIN_IN) {
       perform_graph_reset = true;
     }
@@ -314,7 +288,7 @@ void loop() {
     reset_graph();
   }
 
-  LAST_EAV = result;
+  last_measurement = result;
 
   if (result > MIN_IN) {
 
@@ -350,14 +324,23 @@ void loop() {
      int button_state = digitalRead(BUTTON_PIN);
      if (button_state == LOW) {
        if (millis() < debounce) {
-         // still pressed
+         // still pressed, deboucing...
+         Serial.println("DB.");
        } else {
-         mode = !(bool)mode;
+
+         // Switch mode between Stimulation and measurement
+         if (mode == MODE_STIMULATE) {
+           mode = MODE_MEASURE;
+         } else {
+           mode = MODE_STIMULATE;
+         }
+         
+         // Work in changed mode
          if (mode == MODE_STIMULATE) {
            reset_graph();
-           analogWrite(D2, 1000); // start stimulator
+           analogWrite(SIGOUT_PIN, 1000); // start stimulator
          } else {
-           analogWrite(D2, 0); // stop stimulator
+           analogWrite(SIGOUT_PIN, 0); // stop stimulator
          }
          debounce = millis() + 500;
        }
