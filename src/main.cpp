@@ -151,22 +151,27 @@ int overlaysCount = 2;
 // Human connects between GND and A0 and that's it.
 
 void setup() {
-  Serial.begin(115200);
+
+  Serial.begin(230400);
+
   Serial.setTimeout(2000);
 
-  // Wait for serial to initialize.
-  while(!Serial) { }
+  Serial.flush();
 
-  Serial.println("I'm awake.");
+  // Wait for serial to initialize.
+
+  Serial.println("\nI'm awake.");
 
   // Works, but should use WiFiManager
   WiFi.mode(WIFI_STA);
-  WiFi.begin("THiNX-IoT+", "<enter-your-ssid-password>");
+  WiFi.begin("THiNX-IoT", "<enter-your-ssid-password>");
   delay(2000); // wait for DHCP
 
-  // EAV-OLED32: 60f1bbebe075c5e565dfa087e57e545593a647735fcff75a8565d773b5fa0cdd
+  const char *api_key = "dc534a02cc9b7677282f9cc2d2d514677c703eca0fef258c93f56ce0f08a23c2";
+  const char *owner_id = "886d515f173e4698f15140366113b7c98c678401b815a592d88c866d13bf5445";
+  thx = THiNX(api_key, owner_id);
 
-  thx = THiNX("60f1bbebe075c5e565dfa087e57e545593a647735fcff75a8565d773b5fa0cdd", "e655a920ed7e9656d675aa29dc1c4c5cde054f25e594a61a369988b864436421");
+  Serial.println("Configuring hardware...");
 
   pinMode(A0, INPUT);
   pinMode(BUTTON_PIN, INPUT);
@@ -195,6 +200,8 @@ void setup() {
   // Initialising the UI will init the display too.
   ui.init();
   display.flipScreenVertically();
+
+  Serial.println("Main loop started...");
 }
 
 /*

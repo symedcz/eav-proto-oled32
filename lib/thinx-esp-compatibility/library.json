@@ -1,0 +1,17 @@
+{
+  "name": "ESPCompatibility",
+  "keywords": "thinx, esp8266, esp32",
+  "description": "ESP8266/ESP32 wrapper",
+  "authors": {
+    "name": "Matej Sychra",
+    "email": "suculent@me.com",
+    "url": "https://github.com/suculent/thinx-esp-compatibility"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/suculent/thinx-esp-compatibility.git"
+  },
+  "version": "0.0.1",
+  "frameworks": "arduino",
+  "platforms": ["esp8266", "esp32"]
+}
